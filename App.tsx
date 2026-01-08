@@ -9,116 +9,33 @@ import { InspectionList } from './views/InspectionList';
 import { InspectionForm } from './views/InspectionForm';
 import { Management } from './views/Management';
 import { Reports } from './views/Reports';
+import { subscribeToCollection, saveDoc, deleteDocById } from './services/firestoreService';
 
 const INITIAL_USERS: User[] = [
-    { id: '1', name: 'Admin Principal', email: 'admin@prevencar.com.br', role: 'admin' },
-    { id: '2', name: 'Cris Vistoriador', email: 'cris@prevencar.com.br', role: 'vistoriador' },
-    { id: '3', name: 'Pedro Vistoriador', email: 'pedro@prevencar.com.br', role: 'vistoriador' },
-    { id: '4', name: 'Joana Financeiro', email: 'financeiro@prevencar.com.br', role: 'financeiro' }
+  { id: 'admin', name: 'Admin Principal', email: 'admin@prevencar.com.br', role: 'admin' }
 ];
 
-const INITIAL_INDICATIONS: Indication[] = [
-    { id: '1', name: 'Peças AutoSul', document: '12.345.678/0001-90', phone: '(11) 98888-7777', email: 'contato@autosul.com', cep: '01001-000', address: 'Rua Principal', number: '100', neighborhood: 'Centro' },
-    { id: '2', name: 'Mecânica Rápida', document: '98.765.432/0001-10', phone: '(11) 97777-6666', email: 'contato@mecanica.com', cep: '02002-000', address: 'Av Secundaria', number: '200', neighborhood: 'Jardins' }
-];
+const INITIAL_INDICATIONS: Indication[] = [];
 
-const INITIAL_SERVICES: ServiceItem[] = [
-    { id: '1', name: 'Laudo de Transferência', price: 100.00, description: 'Laudo obrigatório para transferência.', allowManualClientEdit: true },
-    { id: '2', name: 'Laudo Cautelar', price: 250.00, description: 'Análise completa da estrutura.', allowManualClientEdit: true },
-    { id: '3', name: 'Laudo de Revistoria', price: 80.00, description: 'Reavaliação de itens apontados em laudo anterior.', allowManualClientEdit: true },
-    { id: '4', name: 'Vistoria Prévia', price: 150.00, description: 'Para seguradoras.', allowManualClientEdit: false },
-    { id: '5', name: 'Pesquisa', price: 50.00, description: 'Pesquisa de débitos e restrições.', allowManualClientEdit: false },
-    { id: '6', name: 'Prevenscan', price: 300.00, description: 'Scanner completo.', allowManualClientEdit: false }
-];
+const INITIAL_SERVICES: ServiceItem[] = [];
 
 const TODAY = new Date().toISOString().split('T')[0];
 const CURRENT_MONTH = TODAY.substring(0, 7);
 
-const DEMO_INSPECTIONS: Inspection[] = [
-    {
-        id: 'INS-001',
-        date: TODAY,
-        vehicleModel: 'Honda Civic',
-        licensePlate: 'ABC-1234',
-        selectedServices: ['Laudo de Transferência', 'Pesquisa'],
-        client: { name: 'João da Silva', cpf: '123.456.789-00', phone: '(11) 99999-8888', address: 'Rua das Flores', cep: '01001-000', number: '50' },
-        inspector: 'Cris Vistoriador',
-        totalValue: 150.00,
-        paymentMethod: PaymentMethod.PIX,
-        status_ficha: 'Completa',
-        status_pagamento: 'Pago',
-        status: 'Concluída',
-        mes_referencia: CURRENT_MONTH,
-        nfe: '4567'
-    },
-    {
-        id: 'INS-002',
-        date: TODAY,
-        vehicleModel: 'Toyota Corolla',
-        licensePlate: 'XYZ-5678',
-        selectedServices: ['Laudo Cautelar'],
-        indicationId: '1',
-        indicationName: 'Peças AutoSul',
-        client: { name: 'Peças AutoSul', cpf: '12.345.678/0001-90', phone: '(11) 98888-7777', address: 'Rua Principal', cep: '01001-000', number: '100' },
-        inspector: 'Pedro Vistoriador',
-        totalValue: 250.00,
-        status_ficha: 'Completa',
-        status_pagamento: 'A pagar',
-        status: 'No Caixa',
-        mes_referencia: CURRENT_MONTH
-    },
-    {
-        id: 'INS-003',
-        date: TODAY,
-        vehicleModel: 'Chevrolet Onix',
-        licensePlate: 'KJH-9090',
-        selectedServices: ['Laudo de Transferência'],
-        client: { name: 'Maria Souza', cpf: '987.654.321-11', phone: '(11) 97777-6666', address: 'Av Paulista', cep: '01310-000', number: '1000' },
-        inspector: 'Cris Vistoriador',
-        totalValue: 100.00,
-        paymentMethod: PaymentMethod.DEBITO,
-        status_ficha: 'Completa',
-        status_pagamento: 'Pago',
-        status: 'Concluída',
-        mes_referencia: CURRENT_MONTH,
-        nfe: '8812'
-    }
-];
+const DEMO_INSPECTIONS: Inspection[] = [];
 
-function useLocalStorage<T>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
-  const [storedValue, setStoredValue] = useState<T>(() => {
-    try {
-      const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
-    } catch (error) {
-      console.error(error);
-      return initialValue;
-    }
-  });
-
-  const setValue = (value: T | ((val: T) => T)) => {
-    try {
-      const valueToStore = value instanceof Function ? value(storedValue) : value;
-      setStoredValue(valueToStore);
-      window.localStorage.setItem(key, JSON.stringify(valueToStore));
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  return [storedValue, setValue];
-}
+// Firestore is used as the source of truth. Local state mirrors collections via real-time listeners.
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.LOGIN);
   const [currentUser, setCurrentUser] = useState<User | undefined>(undefined);
   
-  const [inspections, setInspections] = useLocalStorage<Inspection[]>('prevencar_inspections', DEMO_INSPECTIONS);
-  const [users, setUsers] = useLocalStorage<User[]>('prevencar_users', INITIAL_USERS);
-  const [indications, setIndications] = useLocalStorage<Indication[]>('prevencar_indications', INITIAL_INDICATIONS);
-  const [services, setServices] = useLocalStorage<ServiceItem[]>('prevencar_services', INITIAL_SERVICES);
-  const [monthlyClosures, setMonthlyClosures] = useLocalStorage<MonthlyClosure[]>('prevencar_closures', []);
-  const [logs, setLogs] = useLocalStorage<SystemLog[]>('prevencar_logs', []);
+  const [inspections, setInspections] = useState<Inspection[]>(DEMO_INSPECTIONS);
+  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
+  const [indications, setIndications] = useState<Indication[]>(INITIAL_INDICATIONS);
+  const [services, setServices] = useState<ServiceItem[]>(INITIAL_SERVICES);
+  const [monthlyClosures, setMonthlyClosures] = useState<MonthlyClosure[]>([]);
+  const [logs, setLogs] = useState<SystemLog[]>([]);
 
   const [editingInspection, setEditingInspection] = useState<Inspection | null>(null);
   const [initialFormStep, setInitialFormStep] = useState<number>(1);
@@ -132,7 +49,25 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const addLog = (type: SystemLog['type'], description: string, details?: string) => {
+  useEffect(() => {
+    const unsubIns = subscribeToCollection<Inspection>('inspections', items => setInspections(items.length ? items : DEMO_INSPECTIONS));
+    const unsubUsers = subscribeToCollection<User>('users', items => setUsers(items.length ? items : INITIAL_USERS));
+    const unsubInd = subscribeToCollection<Indication>('indications', setIndications);
+    const unsubServices = subscribeToCollection<ServiceItem>('services', items => items.length ? setServices(items) : setServices(INITIAL_SERVICES));
+    const unsubClosures = subscribeToCollection<MonthlyClosure>('monthlyClosures', setMonthlyClosures);
+    const unsubLogs = subscribeToCollection<SystemLog>('logs', setLogs);
+
+    return () => {
+      try { unsubIns(); } catch (e) {}
+      try { unsubUsers(); } catch (e) {}
+      try { unsubInd(); } catch (e) {}
+      try { unsubServices(); } catch (e) {}
+      try { unsubClosures(); } catch (e) {}
+      try { unsubLogs(); } catch (e) {}
+    };
+  }, []);
+
+  const addLog = async (type: SystemLog['type'], description: string, details?: string) => {
       const newLog: SystemLog = {
           id: Math.random().toString(36).substr(2, 9),
           timestamp: new Date().toISOString(),
@@ -142,7 +77,11 @@ const App: React.FC = () => {
           description,
           details
       };
-      setLogs(prev => [newLog, ...prev.slice(0, 999)]);
+      try {
+        await saveDoc('logs', newLog);
+      } catch (e) {
+        console.error('Falha ao salvar log', e);
+      }
   };
 
   const isMonthClosed = (mes?: string) => {
@@ -206,11 +145,14 @@ const App: React.FC = () => {
         return;
     }
 
-    if (editingInspection) {
-      setInspections(prev => prev.map(i => i.id === newInspection.id ? newInspection : i));
-    } else {
-      setInspections(prev => [newInspection, ...prev]);
-    }
+    (async () => {
+      try {
+        await saveDoc('inspections', newInspection);
+      } catch (e) {
+        console.error('Erro ao salvar inspeção:', e);
+        alert('Erro ao salvar inspeção. Veja o console.');
+      }
+    })();
     setIsViewOnly(false);
     setCurrentView(ViewState.INSPECTION_LIST);
   };
@@ -224,26 +166,28 @@ const App: React.FC = () => {
         alert("Acesso negado: Período encerrado.");
         return;
     }
-
-    setInspections(prev => prev.map(i => {
-        if (data.ids.includes(i.id)) {
-            const updated = { ...i, ...data.updates };
-            // Se o status geral for Concluída, marcar como pago
-            if (data.updates.status === 'Concluída') {
-                updated.status_pagamento = 'Pago';
-                updated.data_pagamento = now;
-            }
-            // Se estiver atualizando a forma de pagamento em lote para algo que não seja "A Pagar"
-            if (data.updates.paymentMethod && data.updates.paymentMethod !== PaymentMethod.A_PAGAR) {
-                updated.status_pagamento = 'Pago';
-                updated.data_pagamento = now;
-            }
-            return updated;
-        }
-        return i;
-    }));
-    
-    addLog('financeiro', `Atualização em lote realizada para ${data.ids.length} fichas.`, `Fichas: ${data.ids.join(', ')}`);
+    (async () => {
+      try {
+        const updates = data.ids.map(id => {
+          const existing = inspections.find(i => i.id === id);
+          if (!existing) return null;
+          const updated: Inspection = { ...existing, ...data.updates } as Inspection;
+          if (data.updates.status === 'Concluída') {
+            updated.status_pagamento = 'Pago';
+            updated.data_pagamento = now;
+          }
+          if (data.updates.paymentMethod && data.updates.paymentMethod !== PaymentMethod.A_PAGAR) {
+            updated.status_pagamento = 'Pago';
+            updated.data_pagamento = now;
+          }
+          return saveDoc('inspections', updated);
+        }).filter(Boolean);
+        await Promise.all(updates as Promise<any>[]);
+        addLog('financeiro', `Atualização em lote realizada para ${data.ids.length} fichas.`, `Fichas: ${data.ids.join(', ')}`);
+      } catch (e) {
+        console.error('Erro em atualização em lote:', e);
+      }
+    })();
   };
 
   const processMonthlyClosure = (mes: string) => {
@@ -264,37 +208,57 @@ const App: React.FC = () => {
           total_valor: totalValor
       };
 
-      setMonthlyClosures([...monthlyClosures, newClosure]);
+      (async () => {
+        try {
+          await saveDoc('monthlyClosures', newClosure);
+        } catch (e) {
+          console.error('Erro ao salvar fechamento:', e);
+        }
+      })();
       return { success: true, message: `Mês ${mes} fechado.` };
   };
 
   const handleSaveUser = (user: User) => {
-      if (users.find(u => u.id === user.id)) setUsers(users.map(u => u.id === user.id ? user : u));
-      else setUsers([...users, { ...user, id: Math.random().toString(36).substr(2, 9) }]);
+      (async () => {
+        try {
+          if (!user.id) user.id = Math.random().toString(36).substr(2, 9);
+          await saveDoc('users', user);
+        } catch (e) {
+          console.error('Erro ao salvar usuário:', e);
+        }
+      })();
   };
 
   const onDeleteUser = (id: string) => {
-      setUsers(prev => prev.filter(u => u.id !== id));
+      (async () => {
+        try {
+          await deleteDocById('users', id);
+        } catch (e) { console.error(e); }
+      })();
   };
 
   const handleSaveIndication = (ind: Indication) => {
-      setIndications(prev => {
-          const exists = prev.find(x => x.id === ind.id);
-          if (exists) return prev.map(x => x.id === ind.id ? ind : x);
-          return [...prev, ind];
-      });
+      (async () => {
+        try {
+          if (!ind.id) ind.id = Math.random().toString(36).substr(2, 9);
+          await saveDoc('indications', ind);
+        } catch (e) { console.error(e); }
+      })();
   };
 
   const handleSaveService = (service: ServiceItem) => {
-      setServices(prev => {
-          const exists = prev.find(x => x.id === service.id);
-          if (exists) return prev.map(x => x.id === service.id ? service : x);
-          return [...prev, service];
-      });
+      (async () => {
+        try {
+          if (!service.id) service.id = Math.random().toString(36).substr(2, 9);
+          await saveDoc('services', service);
+        } catch (e) { console.error(e); }
+      })();
   };
 
   const onDeleteService = (id: string) => {
-      setServices(prev => prev.filter(x => x.id !== id));
+      (async () => {
+        try { await deleteDocById('services', id); } catch (e) { console.error(e); }
+      })();
   };
 
   const renderView = () => {
@@ -302,9 +266,7 @@ const App: React.FC = () => {
       case ViewState.LOGIN:
         return <Login onLogin={handleLogin} changeView={setCurrentView} />;
       case ViewState.FORGOT_PASSWORD:
-        return <ForgotPassword changeView={setCurrentView} users={users} onResetPassword={(e, n) => {
-            setUsers(prev => prev.map(u => u.email === e ? { ...u, password: n } : u));
-        }} />;
+        return <ForgotPassword changeView={setCurrentView} />;
       case ViewState.HOME:
         return (
           <Layout currentView={currentView} changeView={setCurrentView} logout={handleLogout} currentUser={currentUser}>
@@ -321,7 +283,7 @@ const App: React.FC = () => {
               onDelete={id => {
                   const ins = inspections.find(x => x.id === id);
                   if (isMonthClosed(ins?.mes_referencia)) return;
-                  setInspections(prev => prev.filter(i => i.id !== id));
+                  (async () => { try { await deleteDocById('inspections', id); } catch (e) { console.error(e); } })();
               }} 
               onBulkUpdate={handleBulkUpdateInspections} 
               changeView={setCurrentView} 
@@ -346,7 +308,7 @@ const App: React.FC = () => {
                 onDelete={id => {
                     const ins = inspections.find(x => x.id === id);
                     if (isMonthClosed(ins?.mes_referencia)) return;
-                    setInspections(prev => prev.filter(i => i.id !== id));
+                  (async () => { try { await deleteDocById('inspections', id); } catch (e) { console.error(e); } })();
                 }} 
                 currentUser={currentUser} 
                 indications={indications} 
@@ -377,7 +339,7 @@ const App: React.FC = () => {
                 onSaveUser={handleSaveUser} 
                 onDeleteUser={onDeleteUser} 
                 onSaveIndication={handleSaveIndication} 
-                onDeleteIndication={id => setIndications(prev => prev.filter(i => i.id !== id))} 
+                onDeleteIndication={id => { (async () => { try { await deleteDocById('indications', id); } catch (e) { console.error(e); } })(); }} 
                 onSaveService={handleSaveService} 
                 onDeleteService={onDeleteService} 
                 onProcessClosure={processMonthlyClosure} 
