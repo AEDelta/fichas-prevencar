@@ -114,6 +114,8 @@ const App: React.FC = () => {
         ? 'Senha incorreta.'
         : code === 'auth/user-not-found'
         ? 'E-mail não cadastrado.'
+        : code === 'auth/operation-not-allowed'
+        ? 'Autenticação por e-mail/senha não está habilitada no Firebase. Habilite em Firebase Console.'
         : 'Erro ao autenticar. Verifique suas credenciais.';
       alert(friendly);
     }

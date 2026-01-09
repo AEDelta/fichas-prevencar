@@ -4,8 +4,16 @@ import { collection, onSnapshot, addDoc, setDoc, doc, deleteDoc } from 'firebase
 export function subscribeToCollection<T>(colName: string, onUpdate: (items: T[]) => void) {
   const colRef = collection(db, colName);
   const unsub = onSnapshot(colRef, snapshot => {
-    const items = snapshot.docs.map(d => ({ id: d.id, ...(d.data() as any) }) as T);
-    onUpdate(items);
+    try {
+      const items = snapshot.docs.map(d => ({ id: d.id, ...(d.data() as any) }) as T);
+      onUpdate(items);
+    } catch (e) {
+      console.error(`Error processing snapshot for ${colName}:`, e);
+    }
+  }, (err) => {
+    console.error(`Firestore snapshot error for ${colName}:`, err);
+    // Clear local state to avoid stale/partial UI and surface the issue
+    try { onUpdate([]); } catch (e) { /* ignore */ }
   });
   return unsub;
 }
