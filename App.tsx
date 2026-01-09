@@ -96,17 +96,16 @@ const App: React.FC = () => {
       const cred = await signInWithEmailAndPassword(auth, email, password);
       const existingUser = users.find(u => u.email === email);
       if (!existingUser) {
-        alert('Login efetuado, mas nenhum perfil de usuário foi encontrado. Contate um administrador.');
-        // create minimal currentUser from auth data
-        const fallbackUser = { id: cred.user.uid, name: cred.user.displayName || email.split('@')[0], email, role: 'vistoriador' } as any;
-        setCurrentUser(fallbackUser);
-        if (rememberMe) localStorage.setItem('prevencar_remembered_user', JSON.stringify(fallbackUser));
+        alert('Usuário não encontrado no sistema. Contate um administrador.');
+        // Sign out from Firebase Auth since not authorized in app
+        await signOut(auth);
+        return;
       } else {
         setCurrentUser(existingUser);
         if (rememberMe) localStorage.setItem('prevencar_remembered_user', JSON.stringify(existingUser));
+        addLog('operacional', `Usuário ${email} realizou login.`);
+        setCurrentView(ViewState.HOME);
       }
-      addLog('operacional', `Usuário ${email} realizou login.`);
-      setCurrentView(ViewState.HOME);
     } catch (e: any) {
       console.error('signInWithEmailAndPassword error:', e);
       const code = e?.code || '';

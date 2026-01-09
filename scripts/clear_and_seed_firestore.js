@@ -65,6 +65,24 @@ async function main() {
     await db.collection('users').doc(adminDoc.id).set(adminDoc);
     console.log(' - admin user document created:', adminEmail);
 
+    console.log('Seeding test user document in collection `users`');
+    const testUserDoc = {
+      id: 'test',
+      name: 'Usuário de Teste',
+      email: 'teste@prevencar.com.br',
+      role: 'vistoriador'
+    };
+    await db.collection('users').doc(testUserDoc.id).set(testUserDoc);
+    console.log(' - test user document created:', testUserDoc.email);
+
+    // Create Firebase Auth user for test user
+    try {
+      const testUserRecord = await admin.auth().createUser({ email: testUserDoc.email, password: 'teste123', displayName: testUserDoc.name });
+      console.log(' - Firebase Auth test user created:', testUserRecord.uid);
+    } catch (e) {
+      console.error(' - failed to create Firebase Auth test user (maybe already exists):', e.message || e);
+    }
+
     if (adminPassword) {
       try {
         const userRecord = await admin.auth().createUser({ email: adminEmail, password: adminPassword, displayName: adminName });
