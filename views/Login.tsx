@@ -7,7 +7,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 
 interface LoginProps {
-  onLogin: (email: string, rememberMe: boolean) => void;
+  onLogin: (email: string, password: string, rememberMe: boolean) => void;
   changeView: (view: ViewState) => void;
 }
 
@@ -23,7 +23,7 @@ export const Login = ({ onLogin, changeView }: LoginProps) => {
     // Simulate API call
     setTimeout(() => {
       setLoading(false);
-      onLogin(email, rememberMe);
+      onLogin(email, password, rememberMe);
     }, 1000);
   };
 

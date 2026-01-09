@@ -28,7 +28,14 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ changeView }) =>
       await sendPasswordResetEmail(auth, email);
       setStep(2);
     } catch (error: any) {
-      setError(error.message || 'Erro ao enviar código. Verifique o e-mail.');
+      console.error('sendPasswordResetEmail error:', error);
+      const code = error?.code || '';
+      const friendly = code === 'auth/user-not-found'
+        ? 'E-mail não cadastrado no sistema.'
+        : code === 'auth/invalid-email'
+        ? 'E-mail inválido. Verifique o formato.'
+        : 'Erro ao enviar código. Verifique sua conexão e o e-mail.';
+      setError(friendly);
     } finally {
       setLoading(false);
     }
@@ -58,8 +65,12 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ changeView }) =>
       await confirmPasswordReset(auth, code, newPassword);
       setStep(3);
     } catch (error: any) {
-      const errorMsg = error.code === 'auth/invalid-action-code' 
-        ? 'Código inválido ou expirado. Solicite um novo.' 
+      console.error('confirmPasswordReset error:', error);
+      const code = error?.code || '';
+      const errorMsg = code === 'auth/invalid-action-code'
+        ? 'Código inválido ou expirado. Solicite um novo.'
+        : code === 'auth/weak-password'
+        ? 'A senha é muito fraca. Escolha uma senha com 6+ caracteres.'
         : error.message || 'Erro ao redefinir senha.';
       setError(errorMsg);
     } finally {

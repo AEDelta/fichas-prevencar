@@ -10,6 +10,8 @@ import { InspectionForm } from './views/InspectionForm';
 import { Management } from './views/Management';
 import { Reports } from './views/Reports';
 import { subscribeToCollection, saveDoc, deleteDocById } from './services/firestoreService';
+import { auth } from './firebase';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 
 const INITIAL_USERS: User[] = [
   { id: 'admin', name: 'Admin Principal', email: 'admin@prevencar.com.br', role: 'admin' }
@@ -89,26 +91,46 @@ const App: React.FC = () => {
     return monthlyClosures.some(c => c.mes === mes && c.fechado);
   };
 
-  const handleLogin = (email: string, rememberMe: boolean) => {
-    const existingUser = users.find(u => u.email === email);
-    if (!existingUser) {
-        alert("Usuário não cadastrado.");
-        return;
+  const handleLogin = async (email: string, password: string, rememberMe: boolean) => {
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      const existingUser = users.find(u => u.email === email);
+      if (!existingUser) {
+        alert('Login efetuado, mas nenhum perfil de usuário foi encontrado. Contate um administrador.');
+        // create minimal currentUser from auth data
+        const fallbackUser = { id: cred.user.uid, name: cred.user.displayName || email.split('@')[0], email, role: 'vistoriador' } as any;
+        setCurrentUser(fallbackUser);
+        if (rememberMe) localStorage.setItem('prevencar_remembered_user', JSON.stringify(fallbackUser));
+      } else {
+        setCurrentUser(existingUser);
+        if (rememberMe) localStorage.setItem('prevencar_remembered_user', JSON.stringify(existingUser));
+      }
+      addLog('operacional', `Usuário ${email} realizou login.`);
+      setCurrentView(ViewState.HOME);
+    } catch (e: any) {
+      console.error('signInWithEmailAndPassword error:', e);
+      const code = e?.code || '';
+      const friendly = code === 'auth/wrong-password'
+        ? 'Senha incorreta.'
+        : code === 'auth/user-not-found'
+        ? 'E-mail não cadastrado.'
+        : 'Erro ao autenticar. Verifique suas credenciais.';
+      alert(friendly);
     }
-
-    setCurrentUser(existingUser);
-    addLog('operacional', `Usuário ${existingUser.name} realizou login.`);
-    if (rememberMe) {
-      localStorage.setItem('prevencar_remembered_user', JSON.stringify(existingUser));
-    }
-    setCurrentView(ViewState.HOME);
   };
 
   const handleLogout = () => {
-    addLog('operacional', `Usuário ${currentUser?.name} realizou logout.`);
-    setCurrentUser(undefined);
-    localStorage.removeItem('prevencar_remembered_user');
-    setCurrentView(ViewState.LOGIN);
+    (async () => {
+      try {
+        await signOut(auth);
+      } catch (e) {
+        console.warn('Erro ao deslogar do Firebase Auth', e);
+      }
+      addLog('operacional', `Usuário ${currentUser?.name} realizou logout.`);
+      setCurrentUser(undefined);
+      localStorage.removeItem('prevencar_remembered_user');
+      setCurrentView(ViewState.LOGIN);
+    })();
   };
 
   const handleStartNewInspection = () => {
@@ -221,8 +243,26 @@ const App: React.FC = () => {
   const handleSaveUser = (user: User) => {
       (async () => {
         try {
-          if (!user.id) user.id = Math.random().toString(36).substr(2, 9);
-          await saveDoc('users', user);
+          const userToSave: any = { ...user };
+
+          // If a password was provided in the form, attempt to create a Firebase Auth user.
+          if (userToSave.password) {
+            try {
+              const cred = await createUserWithEmailAndPassword(auth, userToSave.email, userToSave.password);
+              userToSave.id = cred.user.uid;
+            } catch (err: any) {
+              console.warn('Falha ao criar usuário no Auth:', err?.message || err);
+              // fallback to generated id if none
+              if (!userToSave.id) userToSave.id = Math.random().toString(36).substr(2, 9);
+            }
+          } else {
+            if (!userToSave.id) userToSave.id = Math.random().toString(36).substr(2, 9);
+          }
+
+          // Do not store passwords in Firestore
+          delete userToSave.password;
+
+          await saveDoc('users', userToSave);
         } catch (e) {
           console.error('Erro ao salvar usuário:', e);
         }
