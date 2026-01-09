@@ -3,12 +3,12 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
+  apiKey: "AIzaSyAftZ4N8qU9c_ysYAUTtujlJj3twWRFcNM",
+  authDomain: "fichas-prevencar.firebaseapp.com",
+  projectId: "fichas-prevencar",
+  storageBucket: "fichas-prevencar.firebasestorage.app",
+  messagingSenderId: "996829895570",
+  appId: "1:996829895570:web:dc3e88ee3c0e4967457f4b"
 };
 
 const app = initializeApp(firebaseConfig);
